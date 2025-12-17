@@ -51,11 +51,21 @@ with st.form("prediction_form"):
     submit = st.form_submit_button("Cek Hasil Prediksi")
 
 # --- PROSES PREDIKSI ---
-# --- DI DALAM app.py ---
 if submit:
     try:
-        # 1. Split Blood Pressure
-        systolic, diastolic = map(int, bp_input.split('/'))
+        # Bersihkan input dari spasi yang nggak sengaja ketik
+        bp_input = bp_input.replace(" ", "") 
+        
+        if '/' not in bp_input:
+            st.error("Gunakan tanda garis miring (/) sebagai pemisah. Contoh: 120/80")
+            st.stop()
+            
+        # Split dan ubah jadi integer
+        parts = bp_input.split('/')
+        systolic = int(parts[0])
+        diastolic = int(parts[1])
+        
+        # ... lanjut ke proses encoding dan fitur ...
         
         # 2. Transform Categorical (Encoding)
         gender_enc = le_gender.transform([gender])[0]
@@ -102,4 +112,5 @@ if submit:
     except ValueError:
         st.error("Format Blood Pressure salah! Gunakan format '120/80'")
     except Exception as e:
+
         st.error(f"Terjadi kesalahan teknis: {e}")
