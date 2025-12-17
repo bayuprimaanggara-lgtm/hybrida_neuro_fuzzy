@@ -55,49 +55,52 @@ with st.form("prediction_form"):
     submit = st.form_submit_button("Cek Hasil Prediksi")
 
 # --- 4. PROSES PREDIKSI ---
+# --- 4. PROSES PREDIKSI (VERSI FIX SCALER) ---
 if submit:
     try:
-        # A. Encoding Kategori
+        # A. Encoding Kategori (Kategori tidak ikut di-scale)
         gender_enc = le_gender.transform([gender])[0]
         occ_enc = le_occupation.transform([occupation])[0]
         bmi_enc = le_bmi.transform([bmi_category])[0]
 
-        # B. Susun Array (URUTAN 11 KOLOM SESUAI X_TRAIN KAMU)
-        # Urutan: Age, Sleep Duration, Stress Level, Heart Rate, Daily Steps, 
-        # Physical Activity Level, BP_Sys, BP_Dia, Gender_Code, BMI_Code, Occ_Code
-        features = np.array([[
+        # B. Pisahkan Kolom Numerik (Sesuai urutan num_cols di notebook)
+        # num_cols = ['Age','Sleep Duration','Stress Level','Heart Rate','Daily Steps','Physical Activity Level','BP_Sys','BP_Dia']
+        num_features = np.array([[
             age,                # 1
             sleep_duration,     # 2
             stress_level,       # 3
             heart_rate,         # 4
             daily_steps,        # 5
             physical_activity,  # 6
-            systolic,           # 7 (BP_Sys)
-            diastolic,          # 8 (BP_Dia)
-            gender_enc,         # 9 (Gender_Code)
-            bmi_enc,            # 10 (BMI_Code)
-            occ_enc             # 11 (Occ_Code)
+            systolic,           # 7
+            diastolic           # 8
         ]])
 
-        # C. Scaling & Predict
-        features_scaled = scaler.transform(features)
-        prediction = dnf_model.predict(features_scaled)
+        # C. Scaling hanya untuk 8 kolom numerik
+        num_features_scaled = scaler.transform(num_features)
+
+        # D. Gabungkan 8 kolom hasil scaling + 3 kolom kategori (Total 11)
+        # Urutan harus: num_cols + ['Gender_Code','BMI_Code','Occ_Code']
+        final_features = np.concatenate([
+            num_features_scaled, 
+            np.array([[gender_enc, bmi_enc, occ_enc]])
+        ], axis=1)
+
+        # E. Predict (Sekarang inputnya sudah pas 11 fitur)
+        prediction = dnf_model.predict(final_features)
         pred_class = np.argmax(prediction)
         
-        # D. Decode Hasil
+        # F. Decode Hasil
         result_label = le_target.inverse_transform([pred_class])[0]
         confidence = np.max(prediction) * 100
 
-        # E. Tampilkan Hasil
+        # Tampilkan Hasil
         st.divider()
-        st.subheader("Hasil Analisis:")
         if result_label.lower() in ["healthy", "none", "normal"]:
-            st.success(f"Kondisi: **{result_label}**")
-            st.balloons()
+            st.success(f"Hasil: **{result_label}**")
         else:
-            st.warning(f"Terdeteksi Potensi: **{result_label}**")
-        
-        st.write(f"Tingkat Keyakinan Model: {confidence:.2f}%")
+            st.warning(f"Hasil: **{result_label}**")
+        st.write(f"Confidence: {confidence:.2f}%")
         
     except Exception as e:
         st.error(f"Terjadi kesalahan teknis: {e}")
