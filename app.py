@@ -11,7 +11,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Custom CSS untuk mempercantik tampilan
+# Custom CSS untuk mempercantik tampilan (Sudah difix untuk Python 3.13)
 st.markdown("""
     <style>
     .main {
@@ -23,14 +23,21 @@ st.markdown("""
         height: 3em;
         background-color: #4CAF50;
         color: white;
+        font-weight: bold;
+    }
+    .stMetric {
+        background-color: #ffffff;
+        padding: 10px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     </style>
-    """, unsafe_allow_stdio=True)
+    """, unsafe_allow_html=True)
 
-# --- 2. LOAD ASSETS (MODEL & PREPROCESSOR) ---
+# --- 2. LOAD ASSETS ---
 @st.cache_resource
 def load_assets():
-    # Pastikan nama file ini sesuai dengan yang di-upload ke GitHub
+    # Pastikan file-file ini sudah di-upload ke GitHub Anda
     model = tf.keras.models.load_model('model_sleep.h5')
     scaler = joblib.load('scaler.pkl')
     le_gender = joblib.load('le_gender.pkl')
@@ -42,19 +49,18 @@ def load_assets():
 try:
     dnf_model, scaler, le_gender, le_occupation, le_bmi, le_target = load_assets()
 except Exception as e:
-    st.error(f"Gagal memuat assets: {e}")
+    st.error(f"⚠️ Gagal memuat model atau encoder: {e}")
     st.stop()
 
 # --- 3. INTERFACE PENGGUNA ---
 st.title("🌙 Hybrid AI: Sleep Disorder Detector")
-st.write("Aplikasi cerdas berbasis Deep Learning untuk mendeteksi kesehatan tidur Anda.")
-st.info("Silakan isi data di bawah ini dengan jujur untuk hasil yang akurat.")
+st.write("Analisis kesehatan tidur Anda menggunakan penggabungan Deep Learning dan Fuzzy Logic.")
 
 with st.form("input_form"):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Profil & Kebiasaan")
+        st.subheader("📝 Data Personal")
         gender = st.selectbox("Jenis Kelamin", le_gender.classes_)
         age = st.number_input("Usia", 10, 100, 30)
         occupation = st.selectbox("Pekerjaan", le_occupation.classes_)
@@ -63,23 +69,23 @@ with st.form("input_form"):
         physical_activity = st.slider("Aktivitas Fisik (Menit/Hari)", 0, 120, 30)
 
     with col2:
-        st.subheader("Data Medis")
+        st.subheader("🏥 Parameter Medis")
         stress_level = st.slider("Tingkat Stres (1-10)", 1, 10, 5)
         bmi_category = st.selectbox("Kategori BMI", le_bmi.classes_)
         heart_rate = st.number_input("Denyut Jantung (bpm)", 60, 100, 72)
         daily_steps = st.number_input("Langkah Harian", 0, 20000, 5000)
         
-        st.write("**Tekanan Darah (BP)**")
+        st.write("**Tekanan Darah (Systolic/Diastolic)**")
         c1, c2 = st.columns(2)
         systolic = c1.number_input("Sistolik", 80, 200, 120)
         diastolic = c2.number_input("Diastolik", 50, 150, 80)
     
-    submit = st.form_submit_button("Mulai Analisis AI")
+    submit = st.form_submit_button("🔍 ANALISIS SEKARANG")
 
 # --- 4. LOGIKA PREDIKSI ---
 if submit:
     try:
-        # A. Pre-scale 8 kolom numerik (Sesuai fit scaler di notebook)
+        # A. Pre-scale 8 kolom numerik (Sesuai urutan num_cols di notebook)
         num_features = np.array([[
             age, sleep_duration, stress_level, heart_rate, 
             daily_steps, physical_activity, systolic, diastolic
@@ -87,7 +93,7 @@ if submit:
         
         num_scaled = scaler.transform(num_features)
         
-        # B. Hitung Fuzzy Features (Hybrid Logic)
+        # B. Hitung Fitur Fuzzy (Logika Hybrid AI)
         scaled_sleep = num_scaled[0, 1]
         scaled_stress = num_scaled[0, 2]
         fuzzy_short_sleep = max(0, (0.5 - scaled_sleep))
@@ -98,14 +104,14 @@ if submit:
         bmi_enc = le_bmi.transform([bmi_category])[0]
         occ_enc = le_occupation.transform([occupation])[0]
 
-        # D. Gabungkan jadi 13 Fitur (Urutan xf_train)
+        # D. Gabungkan jadi 13 Fitur (Input Model)
         # Urutan: 8 numerik_scaled + 3 kategori_encoded + 2 fuzzy
         final_input = np.concatenate([
             num_scaled, 
             np.array([[gender_enc, bmi_enc, occ_enc, fuzzy_short_sleep, fuzzy_high_stress]])
         ], axis=1)
 
-        # E. Eksekusi Model
+        # E. Eksekusi Prediksi
         prediction = dnf_model.predict(final_input)
         pred_class = np.argmax(prediction)
         result_label = le_target.inverse_transform([pred_class])[0]
@@ -119,43 +125,43 @@ if submit:
         
         with res_col1:
             if result_label.lower() in ["healthy", "none", "normal"]:
-                st.success(f"### Kondisi Anda: **SEHAT** ✨")
-                st.write("Luar biasa! Tubuh Anda menunjukkan pola tidur yang baik. Pertahankan!")
+                st.success(f"### Kondisi: **SEHAT (Normal)** ✨")
+                st.write("Mantap! Pertahankan pola tidurmu. Tubuh yang segar adalah kunci produktivitas tinggi!")
                 st.balloons()
             elif result_label == "Insomnia":
-                st.warning(f"### Kondisi Anda: **INSOMNIA** ⚠️")
-                st.write("Ada indikasi kesulitan memulai atau mempertahankan tidur.")
+                st.warning(f"### Kondisi: **INSOMNIA** ⚠️")
+                st.write("Sering sulit tidur atau terbangun di malam hari? Tenang, ini bisa diperbaiki kok.")
             elif result_label == "Sleep Apnea":
-                st.error(f"### Kondisi Anda: **SLEEP APNEA** 🚨")
-                st.write("Terdeteksi pola gangguan pernapasan saat tidur.")
+                st.error(f"### Kondisi: **SLEEP APNEA** 🚨")
+                st.write("Ada indikasi gangguan pernapasan saat tidur yang perlu diperhatikan.")
 
         with res_col2:
             st.metric(label="AI Confidence", value=f"{confidence:.1f}%")
 
-        # SEKSI SARAN
+        # SEKSI SARAN & PENYEMANGAT
         st.write("---")
-        st.write("### 💡 Saran & Penyemangat:")
+        st.write("### 💡 Saran & Penyemangat Untukmu:")
         
         if result_label == "Insomnia":
             st.markdown("""
-            * **Power Down:** Matikan gadget 1 jam sebelum tidur. Cahaya biru itu musuhmu!
-            * **Mindfulness:** Coba meditasi atau teknik pernapasan 4-7-8 sebelum tidur.
-            * *Jangan menyerah, pikiran yang tenang adalah kunci tidur yang nyenyak. Kamu pasti bisa melewati ini!*
+            * **Power Down:** Matikan HP/Laptop 1 jam sebelum tidur agar otak lebih rileks.
+            * **Mindfulness:** Coba dengarkan musik relaksasi atau meditasi sebelum memejamkan mata.
+            * *Jangan menyerah, istirahat bukan berarti kalah. Tubuhmu hanya butuh waktu untuk tenang.*
             """)
         elif result_label == "Sleep Apnea":
             st.markdown("""
-            * **Posisi Tidur:** Cobalah tidur menyamping agar jalan napas lebih terbuka.
-            * **Konsultasi Dokter:** Sangat disarankan untuk cek ke dokter spesialis tidur (Sleep Clinic).
-            * *Kesehatanmu berharga. Mengambil langkah untuk berobat adalah bukti kamu sayang dirimu sendiri!*
+            * **Posisi Tidur:** Cobalah tidur menyamping agar jalan napas tidak tertutup.
+            * **Cek Medis:** Sangat disarankan untuk konsultasi ke dokter THT atau spesialis tidur.
+            * *Kesehatan adalah investasi. Menangani masalah sejak dini adalah bukti kamu sayang dirimu.*
             """)
         else:
             st.markdown("""
-            * **Consistency:** Tetap bangun dan tidur di jam yang sama setiap hari.
-            * **Environment:** Pastikan kamar tidurmu gelap, sejuk, dan tenang.
-            * *Tubuh yang bugar berawal dari tidur yang benar. Teruslah menjadi inspirasi sehat!*
+            * **Konsistensi:** Bangun dan tidurlah di jam yang sama setiap hari agar jam biologis terjaga.
+            * **Hidrasi:** Jangan lupa minum air putih yang cukup sepanjang hari.
+            * *Teruslah jadi versi terbaik dirimu! Tubuh yang bugar adalah modal paling berharga.*
             """)
             
-        st.caption("Catatan: Ini adalah hasil prediksi model AI. Konsultasikan dengan tenaga medis untuk diagnosa resmi.")
+        st.caption("Catatan: Aplikasi ini hanyalah alat bantu prediksi AI. Hasilnya tidak menggantikan diagnosa dokter profesional.")
 
     except Exception as e:
-        st.error(f"Terjadi kesalahan teknis: {e}")
+        st.error(f"⚠️ Terjadi kesalahan teknis: {e}")
