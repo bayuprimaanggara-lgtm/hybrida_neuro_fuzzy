@@ -135,10 +135,7 @@ if submit:
                 st.error(f"### Kondisi: **SLEEP APNEA** 🚨")
                 st.write("Ada indikasi gangguan pernapasan saat tidur yang perlu diperhatikan.")
 
-        with res_col2:
-            st.metric(label="AI Confidence", value=f"{confidence:.1f}%")
-
-        # SEKSI SARAN & PENYEMANGAT
+        # SESI SARAN & PENYEMANGAT
         st.write("---")
         st.write("### 💡 Saran & Penyemangat Untukmu:")
         
@@ -165,3 +162,4 @@ if submit:
 
     except Exception as e:
         st.error(f"⚠️ Terjadi kesalahan teknis: {e}")
+
